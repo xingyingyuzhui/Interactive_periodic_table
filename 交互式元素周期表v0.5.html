@@ -4,14 +4,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交互式元素周期表V0.4</title>
+    <title>交互式元素周期表V0.5</title>
     <style>
         :root {
             --border-color: #cbd5e0;
-            --box-size: 50px;
+            --box-size: 72px;
             /* 稍微放大格子以容纳汉字 */
             --gap-size: 4px;
             --table-width: calc(18 * var(--box-size) + 17 * var(--gap-size));
+            --period-label-width: 32px;
+            --side-col-width: var(--box-size);
+            --side-cols-width: calc(2 * var(--side-col-width) + var(--gap-size));
+            --label-height: 28px;
+            --container-width: calc(var(--table-width) + var(--period-label-width) + var(--side-cols-width) + 90px);
             --bg-color: #f7fafc;
             --card-bg: #ffffff;
             --hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -21,11 +26,12 @@
             /* 重点标记背景 */
 
             /* 分区颜色 (默认淡雅色调) */
-            --s-block: #d1fae5;
-            --p-block: #e0e7ff;
-            --d-block: #fde68a;
-            --f-block: #ecfccb;
-            --ds-block: #bfdbfe;
+            --s-block: #d1f0c6;
+            --p-block: #e6f4d8;
+            --d-block: #f9e2a8;
+            --f-block: #f6c6cf;
+            --ds-block: #f3c98b;
+            --noble-block: #c7ddff;
         }
 
         body {
@@ -35,14 +41,25 @@
             align-items: center;
             background-color: var(--bg-color);
             margin: 0;
-            padding: 20px;
+            padding: 16px;
             color: #2d3748;
             user-select: none;
         }
 
+        .top-row {
+            display: flex;
+            gap: 12px;
+            width: var(--container-width);
+            align-items: stretch;
+            margin-bottom: 10px;
+            flex-wrap: nowrap;
+            padding: 0 30px;
+            box-sizing: border-box;
+        }
+
         /* 控制面板 */
         .controls {
-            margin-bottom: 20px;
+            margin-bottom: 0;
             background: white;
             padding: 15px 25px;
             border-radius: 16px;
@@ -52,7 +69,9 @@
             flex-wrap: wrap;
             justify-content: center;
             border: 1px solid #edf2f7;
-            max-width: 900px;
+            flex: 0 0 60%;
+            height: 100%;
+            box-sizing: border-box;
         }
 
         .control-group {
@@ -109,7 +128,7 @@
             padding: 30px;
             border-radius: 20px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            width: calc(var(--table-width) + 60px);
+            width: var(--container-width);
             box-sizing: border-box;
         }
 
@@ -119,8 +138,141 @@
             grid-template-rows: repeat(10, var(--box-size));
             gap: var(--gap-size);
             margin-bottom: 20px;
+            margin-top: calc(var(--label-height) + var(--gap-size));
         }
 
+        .table-grid {
+            display: grid;
+            grid-template-columns: var(--period-label-width) var(--table-width) var(--side-cols-width);
+            row-gap: 0;
+            column-gap: 6px;
+        }
+
+        .table-stack {
+            position: relative;
+            width: var(--table-width);
+            height: calc(10 * var(--box-size) + 9 * var(--gap-size) + var(--label-height) + var(--gap-size));
+        }
+
+        .group-labels {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .group-label {
+            position: absolute;
+            width: var(--box-size);
+            height: var(--label-height);
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #4a5568;
+            background: #ffffff;
+            box-sizing: border-box;
+            left: calc((var(--col) - 1) * (var(--box-size) + var(--gap-size)));
+            top: calc((var(--row) - 1) * (var(--box-size) + var(--gap-size)));
+        }
+
+        .group-num {
+            font-size: 12px;
+            line-height: 1;
+            color: #2d3748;
+        }
+
+        .group-old {
+            font-size: 11px;
+            line-height: 1.1;
+            color: #718096;
+        }
+
+        .period-labels {
+            display: grid;
+            grid-template-rows: repeat(7, var(--box-size));
+            gap: var(--gap-size);
+            margin-top: calc(var(--label-height) + var(--gap-size));
+        }
+
+        .period-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: var(--box-size);
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #4a5568;
+            background: #ffffff;
+            box-sizing: border-box;
+        }
+
+        .period-label.is-empty {
+            border-color: transparent;
+            background: transparent;
+        }
+        .side-labels {
+            display: grid;
+            grid-template-columns: repeat(2, var(--side-col-width));
+            gap: var(--gap-size);
+            grid-auto-rows: var(--box-size);
+        }
+
+        .side-headers {
+            display: grid;
+            grid-template-columns: repeat(2, var(--side-col-width));
+            gap: var(--gap-size);
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .side-header {
+            height: var(--label-height);
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #4a5568;
+            background: #ffffff;
+            text-align: center;
+            padding: 0 2px;
+            box-sizing: border-box;
+        }
+
+        .side-cell {
+            height: var(--box-size);
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #4a5568;
+            background: #ffffff;
+            box-sizing: border-box;
+        }
+
+        .side-cell.multiline {
+            font-size: 9px;
+            line-height: 1.05;
+            text-align: center;
+            padding: 1px 2px;
+        }
+        .side-column {
+            position: relative;
+            width: var(--side-cols-width);
+            height: calc(7 * var(--box-size) + 6 * var(--gap-size) + var(--label-height) + var(--gap-size));
+        }
+        
+        .side-labels {
+            margin-top: calc(var(--label-height) + var(--gap-size));
+        }
         /* 元素格子 */
         .element {
             border: 1px solid var(--border-color);
@@ -172,14 +324,14 @@
             position: absolute;
             top: 2px;
             left: 3px;
-            font-size: 9px;
+            font-size: 11px;
             color: #718096;
             opacity: 0;
             transition: opacity 0.2s;
         }
 
         .symbol {
-            font-size: 16px;
+            font-size: 20px;
             font-weight: 700;
             color: #2d3748;
             line-height: 1.1;
@@ -188,7 +340,7 @@
         }
 
         .hanzi {
-            font-size: 11px;
+            font-size: 14px;
             color: #4a5568;
             margin-top: 1px;
             opacity: 0;
@@ -243,6 +395,10 @@
             background-color: var(--f-block);
         }
 
+        .show-zones .element[data-group="18"] {
+            background-color: var(--noble-block);
+        }
+
         /* 保持标记的高亮覆盖分区色 */
         .show-zones .element.is-marked {
             background-color: var(--mark-bg) !important;
@@ -286,10 +442,42 @@
         .status-bar {
             display: flex;
             justify-content: space-between;
-            width: calc(var(--table-width) + 60px);
+            width: var(--container-width);
             margin-bottom: 10px;
             font-size: 13px;
             color: #718096;
+        }
+
+        .legend-panel {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            flex: 0 0 40%;
+            margin-bottom: 0;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .legend-panel .legend-box {
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .legend-box {
+            background: #ffffff;
+            border: 1px solid #edf2f7;
+            border-radius: 12px;
+            padding: 10px 12px;
+            color: #4a5568;
+            box-sizing: border-box;
+            flex: 1;
+        }
+
+        .legend-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 6px;
         }
 
         .info-bar {
@@ -297,9 +485,9 @@
             justify-content: space-between;
             gap: 12px;
             flex-wrap: wrap;
-            width: calc(var(--table-width) + 60px);
+            width: var(--container-width);
             margin-bottom: 10px;
-            font-size: 16px;
+            font-size: 18px;
             color: #4a5568;
             background: #ffffff;
             border: 1px solid #edf2f7;
@@ -314,7 +502,7 @@
         }
 
         .info-bar .config {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             line-height: 1.6;
         }
@@ -326,11 +514,6 @@
 
         .info-bar .orbital {
             white-space: nowrap;
-        }
-
-        .info-note {
-            font-size: 12px;
-            color: #a0aec0;
         }
 
         .legend span {
@@ -346,18 +529,24 @@
             border-radius: 50%;
             display: inline-block;
         }
+
+        .info-note {
+            font-size: 12px;
+            color: #a0aec0;
+        }
     </style>
 </head>
 
 <body>
 
-    <div class="controls">
-        <div class="control-group">
-            <span class="control-label">提示</span>
-            <button id="btn-num" onclick="toggleGlobal('number')">🔢 序号</button>
-            <button id="btn-zones" onclick="toggleGlobal('zones')">🎨 分区 (s/p/d/f)</button>
-            <button id="btn-stair" onclick="toggleGlobal('staircase')">📉 金属分界</button>
-        </div>
+    <div class="top-row">
+        <div class="controls">
+            <div class="control-group">
+                <span class="control-label">提示</span>
+                <button id="btn-num" onclick="toggleGlobal('number')">🔢 序号</button>
+                <button id="btn-zones" onclick="toggleGlobal('zones')">🎨 分区 (s/p/d/f)</button>
+                <button id="btn-stair" onclick="toggleGlobal('staircase')">📉 金属分界</button>
+            </div>
 
         <div class="control-group">
             <span class="control-label">答案</span>
@@ -365,20 +554,27 @@
             <button id="btn-hanzi" onclick="toggleGlobal('hanzi')">🇨🇳 汉字</button>
         </div>
 
-        <div class="control-group">
-            <button onclick="resetTable()" style="color: #e53e3e; border-color: #e53e3e;">🗑️ 重置</button>
+            <div class="control-group">
+                <button onclick="resetTable()" style="color: #e53e3e; border-color: #e53e3e;">🗑️ 重置</button>
+            </div>
+        </div>
+        <div class="legend-panel">
+            <div class="legend-box">
+                <div class="legend-title">分区颜色 / 稀有气体</div>
+                <div class="legend">
+                    <span><i class="dot" style="background:var(--s-block)"></i> s区</span>
+                    <span><i class="dot" style="background:var(--p-block)"></i> p区</span>
+                    <span><i class="dot" style="background:var(--d-block)"></i> d区</span>
+                    <span><i class="dot" style="background:var(--ds-block)"></i> ds区</span>
+                    <span><i class="dot" style="background:var(--f-block)"></i> f区</span>
+                    <span><i class="dot" style="background:var(--noble-block)"></i> 稀有气体</span>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="status-bar">
         <div class="instructions">🖱️ 左键：揭晓单格 | 右键：标记难点</div>
-        <div class="legend">
-            <span><i class="dot" style="background:var(--s-block)"></i> s区</span>
-            <span><i class="dot" style="background:var(--p-block)"></i> p区</span>
-            <span><i class="dot" style="background:var(--d-block)"></i> d区</span>
-            <span><i class="dot" style="background:var(--ds-block)"></i> ds区</span>
-            <span><i class="dot" style="background:var(--f-block)"></i> f区</span>
-        </div>
     </div>
 
     <div class="info-bar" id="info-bar">
@@ -387,8 +583,66 @@
     </div>
 
     <div class="periodic-table-container">
-        <div class="periodic-table" id="table">
-            <!-- JS 生成 -->
+        <div class="table-grid">
+            <div class="period-labels">
+                <div class="period-label">1</div>
+                <div class="period-label">2</div>
+                <div class="period-label">3</div>
+                <div class="period-label">4</div>
+                <div class="period-label">5</div>
+                <div class="period-label">6</div>
+                <div class="period-label">7</div>
+            </div>
+
+            <div class="table-stack">
+                <div class="group-labels">
+                    <div class="group-label" style="--col:1;--row:1"><span class="group-num">1</span><span class="group-old">IA</span></div>
+                    <div class="group-label" style="--col:2;--row:2"><span class="group-num">2</span><span class="group-old">IIA</span></div>
+                    <div class="group-label" style="--col:3;--row:4"><span class="group-num">3</span><span class="group-old">IIIB</span></div>
+                    <div class="group-label" style="--col:4;--row:4"><span class="group-num">4</span><span class="group-old">IVB</span></div>
+                    <div class="group-label" style="--col:5;--row:4"><span class="group-num">5</span><span class="group-old">VB</span></div>
+                    <div class="group-label" style="--col:6;--row:4"><span class="group-num">6</span><span class="group-old">VIB</span></div>
+                    <div class="group-label" style="--col:7;--row:4"><span class="group-num">7</span><span class="group-old">VIIB</span></div>
+                    <div class="group-label" style="--col:8;--row:4"><span class="group-num">8</span><span class="group-old">VIII</span></div>
+                    <div class="group-label" style="--col:9;--row:4"><span class="group-num">9</span><span class="group-old">VIII</span></div>
+                    <div class="group-label" style="--col:10;--row:4"><span class="group-num">10</span><span class="group-old">VIII</span></div>
+                    <div class="group-label" style="--col:11;--row:4"><span class="group-num">11</span><span class="group-old">IB</span></div>
+                    <div class="group-label" style="--col:12;--row:4"><span class="group-num">12</span><span class="group-old">IIB</span></div>
+                    <div class="group-label" style="--col:13;--row:2"><span class="group-num">13</span><span class="group-old">IIIA</span></div>
+                    <div class="group-label" style="--col:14;--row:2"><span class="group-num">14</span><span class="group-old">IVA</span></div>
+                    <div class="group-label" style="--col:15;--row:2"><span class="group-num">15</span><span class="group-old">VA</span></div>
+                    <div class="group-label" style="--col:16;--row:2"><span class="group-num">16</span><span class="group-old">VIA</span></div>
+                    <div class="group-label" style="--col:17;--row:2"><span class="group-num">17</span><span class="group-old">VIIA</span></div>
+                    <div class="group-label" style="--col:18;--row:1"><span class="group-num">18</span><span class="group-old">0</span></div>
+                </div>
+
+                <div class="periodic-table" id="table">
+                    <!-- JS 生成 -->
+                </div>
+            </div>
+
+            <div class="side-column">
+                <div class="side-headers">
+                    <div class="side-header">电子层</div>
+                    <div class="side-header">0族电子数</div>
+                </div>
+                <div class="side-labels">
+                    <div class="side-cell multiline">K</div>
+                    <div class="side-cell multiline">2</div>
+                    <div class="side-cell multiline">K<br>L</div>
+                    <div class="side-cell multiline">2<br>8</div>
+                    <div class="side-cell multiline">K<br>L<br>M</div>
+                    <div class="side-cell multiline">2<br>8<br>8</div>
+                    <div class="side-cell multiline">K<br>L<br>M<br>N</div>
+                    <div class="side-cell multiline">2<br>8<br>18<br>8</div>
+                    <div class="side-cell multiline">K<br>L<br>M<br>N<br>O</div>
+                    <div class="side-cell multiline">2<br>8<br>18<br>18<br>8</div>
+                    <div class="side-cell multiline">K<br>L<br>M<br>N<br>O<br>P</div>
+                    <div class="side-cell multiline">2<br>8<br>18<br>32<br>18<br>8</div>
+                    <div class="side-cell multiline">K<br>L<br>M<br>N<br>O<br>P<br>Q</div>
+                    <div class="side-cell multiline">2<br>8<br>18<br>32<br>32<br>18<br>8</div>
+                </div>
+            </div>
         </div>
 
         <div class="teaching-notes" contenteditable="true">
@@ -433,6 +687,7 @@
             div.style.gridColumn = col;
 
             div.setAttribute('data-block', block);
+            div.setAttribute('data-group', col);
             div.setAttribute('data-atomic', num);
             if (isStair) div.setAttribute('data-stair', 'true');
 
