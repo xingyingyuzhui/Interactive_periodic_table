@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式元素周期表V0.3</title>
+    <style>
+        :root {
+            --border-color: #cbd5e0;
+            --box-size: 50px;
+            /* 稍微放大格子以容纳汉字 */
+            --gap-size: 4px;
+            --bg-color: #f7fafc;
+            --card-bg: #ffffff;
+            --hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --reveal-bg: #f0fff4;
+            /* 揭晓后的背景 */
+            --mark-bg: #fecaca;
+            /* 重点标记背景 */
+
+            /* 分区颜色 (默认淡雅色调) */
+            --s-block: #d1fae5;
+            --p-block: #e0e7ff;
+            --d-block: #fde68a;
+            --f-block: #ecfccb;
+            --ds-block: #bfdbfe;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #2d3748;
+            user-select: none;
+        }
+
+        /* 控制面板 */
+        .controls {
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            border: 1px solid #edf2f7;
+            max-width: 900px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 8px;
+            padding: 0 10px;
+            border-right: 1px solid #edf2f7;
+            align-items: center;
+        }
+
+        .control-group:last-child {
+            border-right: none;
+        }
+
+        .control-label {
+            font-size: 12px;
+            color: #718096;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        button {
+            padding: 8px 14px;
+            cursor: pointer;
+            background-color: #fff;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #edf2f7;
+            border-color: #cbd5e0;
+            transform: translateY(-1px);
+        }
+
+        button.active {
+            background-color: #ebf8ff;
+            border-color: #4299e1;
+            color: #2b6cb0;
+            box-shadow: 0 0 0 1px #4299e1 inset;
+        }
+
+        /* 周期表容器 */
+        .periodic-table-container {
+            position: relative;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .periodic-table {
+            display: grid;
+            grid-template-columns: repeat(18, var(--box-size));
+            grid-template-rows: repeat(10, var(--box-size));
+            gap: var(--gap-size);
+            margin-bottom: 20px;
+        }
+
+        /* 元素格子 */
+        .element {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: var(--card-bg);
+            box-sizing: border-box;
+            height: 100%;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s;
+        }
+
+        .element:hover {
+            z-index: 10;
+            box-shadow: var(--hover-shadow);
+            transform: scale(1.1);
+            border-color: #a0aec0;
+        }
+
+        /* 状态样式 */
+        .element.is-revealed {
+            background-color: var(--reveal-bg);
+            border-color: #9ae6b4;
+        }
+
+        .element.is-marked {
+            background-color: var(--mark-bg);
+            border-color: #f56565;
+        }
+
+        .element.is-marked.is-revealed {
+            background-color: #fecaca;
+        }
+
+        /* 混合色 */
+
+        /* 内容元素 */
+        .atomic-number {
+            position: absolute;
+            top: 2px;
+            left: 3px;
+            font-size: 9px;
+            color: #718096;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .symbol {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2d3748;
+            line-height: 1.1;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .hanzi {
+            font-size: 11px;
+            color: #4a5568;
+            margin-top: 1px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        /* 显隐逻辑 */
+        /* 全局开关 */
+        .show-number .atomic-number {
+            opacity: 1;
+        }
+
+        .show-symbol .symbol {
+            opacity: 1;
+        }
+
+        .show-hanzi .hanzi {
+            opacity: 1;
+        }
+
+        /* 单个揭晓 (最高优先级) */
+        .element.is-revealed .atomic-number,
+        .element.is-revealed .symbol,
+        .element.is-revealed .hanzi {
+            opacity: 1 !important;
+        }
+
+        /* 阶梯线 */
+        .show-staircase .element[data-stair="true"] {
+            border-bottom: 3px solid #f56565;
+            border-right: 3px solid #f56565;
+        }
+
+        /* 分区着色模式 */
+        .show-zones .element[data-block="s"] {
+            background-color: var(--s-block);
+        }
+
+        .show-zones .element[data-block="p"] {
+            background-color: var(--p-block);
+        }
+
+        .show-zones .element[data-block="d"] {
+            background-color: var(--d-block);
+        }
+
+        .show-zones .element[data-block="ds"] {
+            background-color: var(--ds-block);
+        }
+
+        .show-zones .element[data-block="f"] {
+            background-color: var(--f-block);
+        }
+
+        /* 保持标记的高亮覆盖分区色 */
+        .show-zones .element.is-marked {
+            background-color: var(--mark-bg) !important;
+        }
+
+        .show-zones .element.is-revealed {
+            filter: brightness(0.95);
+        }
+
+        /* 揭晓时稍微变暗一点点以示区别 */
+
+        /* 批注区 */
+        .teaching-notes {
+            margin-top: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 2px dashed #e2e8f0;
+            padding: 20px;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #4a5568;
+            min-height: 60px;
+        }
+
+        .teaching-notes:focus-within {
+            border-color: #4299e1;
+            background: #fff;
+        }
+
+        .series-label {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            font-size: 11px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* 提示栏 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #718096;
+        }
+
+        .legend span {
+            margin-left: 15px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls">
+        <div class="control-group">
+            <span class="control-label">提示</span>
+            <button id="btn-num" onclick="toggleGlobal('number')">🔢 序号</button>
+            <button id="btn-zones" onclick="toggleGlobal('zones')">🎨 分区 (s/p/d/f)</button>
+            <button id="btn-stair" onclick="toggleGlobal('staircase')">📉 金属分界</button>
+        </div>
+
+        <div class="control-group">
+            <span class="control-label">答案</span>
+            <button id="btn-sym" onclick="toggleGlobal('symbol')">🔠 符号</button>
+            <button id="btn-hanzi" onclick="toggleGlobal('hanzi')">🇨🇳 汉字</button>
+        </div>
+
+        <div class="control-group">
+            <button onclick="resetTable()" style="color: #e53e3e; border-color: #e53e3e;">🗑️ 重置</button>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="instructions">🖱️ 左键：揭晓单格 | 右键：标记难点</div>
+        <div class="legend">
+            <span><i class="dot" style="background:var(--s-block)"></i> s区</span>
+            <span><i class="dot" style="background:var(--p-block)"></i> p区</span>
+            <span><i class="dot" style="background:var(--d-block)"></i> d区</span>
+            <span><i class="dot" style="background:var(--ds-block)"></i> ds区</span>
+            <span><i class="dot" style="background:var(--f-block)"></i> f区</span>
+        </div>
+    </div>
+
+    <div class="periodic-table-container">
+        <div class="periodic-table" id="table">
+            <!-- JS 生成 -->
+        </div>
+
+        <div class="teaching-notes" contenteditable="true">
+            <div style="font-weight:bold; margin-bottom:5px;">📝 课堂板书 / 任务发布区:</div>
+            1. 开启“汉字”开关，尝试默写对应的化学符号。<br>
+            2. 开启“分区”功能，观察过渡金属（d区）的位置分布。<br>
+            3. 右键标记出所有的“稀有气体”。
+        </div>
+    </div>
+
+    <script>
+        // 数据格式: [序数, 符号, 汉字, 行, 列, 分区(s/p/d/f), 是否为金属分界点]
+        // s区: 1, 2列; p区: 13-18列(含He); d区: 3-12列; ds区: 第11-12列; f区: 镧系锕系
+        const elementsData = [
+            [1, "H", "氢", 1, 1, "s"], [2, "He", "氦", 1, 18, "p"],
+            [3, "Li", "锂", 2, 1, "s"], [4, "Be", "铍", 2, 2, "s"], [5, "B", "硼", 2, 13, "p", true], [6, "C", "碳", 2, 14, "p"], [7, "N", "氮", 2, 15, "p"], [8, "O", "氧", 2, 16, "p"], [9, "F", "氟", 2, 17, "p"], [10, "Ne", "氖", 2, 18, "p"],
+            [11, "Na", "钠", 3, 1, "s"], [12, "Mg", "镁", 3, 2, "s"], [13, "Al", "铝", 3, 13, "p", true], [14, "Si", "硅", 3, 14, "p", true], [15, "P", "磷", 3, 15, "p"], [16, "S", "硫", 3, 16, "p"], [17, "Cl", "氯", 3, 17, "p"], [18, "Ar", "氩", 3, 18, "p"],
+            [19, "K", "钾", 4, 1, "s"], [20, "Ca", "钙", 4, 2, "s"], [21, "Sc", "钪", 4, 3, "d"], [22, "Ti", "钛", 4, 4, "d"], [23, "V", "钒", 4, 5, "d"], [24, "Cr", "铬", 4, 6, "d"], [25, "Mn", "锰", 4, 7, "d"], [26, "Fe", "铁", 4, 8, "d"], [27, "Co", "钴", 4, 9, "d"], [28, "Ni", "镍", 4, 10, "d"], [29, "Cu", "铜", 4, 11, "ds"], [30, "Zn", "锌", 4, 12, "ds"], [31, "Ga", "镓", 4, 13, "p"], [32, "Ge", "锗", 4, 14, "p", true], [33, "As", "砷", 4, 15, "p", true], [34, "Se", "硒", 4, 16, "p"], [35, "Br", "溴", 4, 17, "p"], [36, "Kr", "氪", 4, 18, "p"],
+            [37, "Rb", "铷", 5, 1, "s"], [38, "Sr", "锶", 5, 2, "s"], [39, "Y", "钇", 5, 3, "d"], [40, "Zr", "锆", 5, 4, "d"], [41, "Nb", "铌", 5, 5, "d"], [42, "Mo", "钼", 5, 6, "d"], [43, "Tc", "锝", 5, 7, "d"], [44, "Ru", "钌", 5, 8, "d"], [45, "Rh", "铑", 5, 9, "d"], [46, "Pd", "钯", 5, 10, "d"], [47, "Ag", "银", 5, 11, "ds"], [48, "Cd", "镉", 5, 12, "ds"], [49, "In", "铟", 5, 13, "p"], [50, "Sn", "锡", 5, 14, "p"], [51, "Sb", "锑", 5, 15, "p", true], [52, "Te", "碲", 5, 16, "p", true], [53, "I", "碘", 5, 17, "p"], [54, "Xe", "氙", 5, 18, "p"],
+            [55, "Cs", "铯", 6, 1, "s"], [56, "Ba", "钡", 6, 2, "s"],
+        /* 镧系占位 */[72, "Hf", "铪", 6, 4, "d"], [73, "Ta", "钽", 6, 5, "d"], [74, "W", "钨", 6, 6, "d"], [75, "Re", "铼", 6, 7, "d"], [76, "Os", "锇", 6, 8, "d"], [77, "Ir", "铱", 6, 9, "d"], [78, "Pt", "铂", 6, 10, "d"], [79, "Au", "金", 6, 11, "ds"], [80, "Hg", "汞", 6, 12, "ds"], [81, "Tl", "铊", 6, 13, "p"], [82, "Pb", "铅", 6, 14, "p"], [83, "Bi", "铋", 6, 15, "p"], [84, "Po", "钋", 6, 16, "p", true], [85, "At", "砹", 6, 17, "p"], [86, "Rn", "氡", 6, 18, "p"],
+            [87, "Fr", "钫", 7, 1, "s"], [88, "Ra", "镭", 7, 2, "s"],
+        /* 锕系占位 */[104, "Rf", "𬬭", 7, 4, "d"], [105, "Db", "𬬻", 7, 5, "d"], [106, "Sg", "𬬳", 7, 6, "d"], [107, "Bh", "𬭛", 7, 7, "d"], [108, "Hs", "𬭶", 7, 8, "d"], [109, "Mt", "鿏", 7, 9, "d"], [110, "Ds", "𫟼", 7, 10, "d"], [111, "Rg", "�", 7, 11, "ds"], [112, "Cn", "鿔", 7, 12, "ds"], [113, "Nh", "鿭", 7, 13, "p"], [114, "Fl", "𫓧", 7, 14, "p"], [115, "Mc", "镆", 7, 15, "p"], [116, "Lv", "𫟷", 7, 16, "p"], [117, "Ts", "𫓬", 7, 17, "p"], [118, "Og", "𫠠", 7, 18, "p"]
+        ];
+
+        // 镧系 (f区)
+        const lanthanides = [
+            [57, "La", "镧"], [58, "Ce", "铈"], [59, "Pr", "镨"], [60, "Nd", "钕"], [61, "Pm", "钷"], [62, "Sm", "钐"], [63, "Eu", "铕"], [64, "Gd", "钆"], [65, "Tb", "铽"], [66, "Dy", "镝"], [67, "Ho", "钬"], [68, "Er", "铒"], [69, "Tm", "铥"], [70, "Yb", "镱"], [71, "Lu", "镥"]
+        ];
+        // 锕系 (f区)
+        const actinides = [
+            [89, "Ac", "锕"], [90, "Th", "钍"], [91, "Pa", "镤"], [92, "U", "铀"], [93, "Np", "镎"], [94, "Pu", "钚"], [95, "Am", "镅"], [96, "Cm", "锔"], [97, "Bk", "锫"], [98, "Cf", "锎"], [99, "Es", "锿"], [100, "Fm", "镄"], [101, "Md", "钔"], [102, "No", "锘"], [103, "Lr", "铹"]
+        ];
+
+        const tableContainer = document.getElementById('table');
+
+        function createElementBox(num, sym, hanzi, row, col, block, isStair) {
+            const div = document.createElement('div');
+            div.className = 'element';
+            div.style.gridRow = row;
+            div.style.gridColumn = col;
+
+            div.setAttribute('data-block', block);
+            if (isStair) div.setAttribute('data-stair', 'true');
+
+            div.innerHTML = `
+            <span class="atomic-number">${num}</span>
+            <span class="symbol">${sym}</span>
+            <span class="hanzi">${hanzi}</span>
+        `;
+
+            div.onclick = function () {
+                this.classList.toggle('is-revealed');
+            };
+
+            div.oncontextmenu = function (e) {
+                e.preventDefault();
+                this.classList.toggle('is-marked');
+                return false;
+            };
+
+            return div;
+        }
+
+        function initTable() {
+            tableContainer.innerHTML = '';
+
+            // 主族
+            elementsData.forEach(el => {
+                tableContainer.appendChild(createElementBox(el[0], el[1], el[2], el[3], el[4], el[5], el[6]));
+            });
+
+            // 标签
+            const labelLa = document.createElement('div');
+            labelLa.className = 'series-label';
+            labelLa.style.gridRow = '9'; labelLa.style.gridColumn = '1 / span 3';
+            labelLa.textContent = '镧系 (57-71)';
+            tableContainer.appendChild(labelLa);
+
+            const labelAc = document.createElement('div');
+            labelAc.className = 'series-label';
+            labelAc.style.gridRow = '10'; labelAc.style.gridColumn = '1 / span 3';
+            labelAc.textContent = '锕系 (89-103)';
+            tableContainer.appendChild(labelAc);
+
+            // 镧系
+            lanthanides.forEach((el, index) => {
+                tableContainer.appendChild(createElementBox(el[0], el[1], el[2], 9, index + 4, "f", false));
+            });
+            // 锕系
+            actinides.forEach((el, index) => {
+                tableContainer.appendChild(createElementBox(el[0], el[1], el[2], 10, index + 4, "f", false));
+            });
+        }
+
+        // 控制逻辑
+        const container = document.querySelector('.periodic-table-container');
+
+        function toggleGlobal(mode) {
+            const btnMap = {
+                'number': 'btn-num',
+                'symbol': 'btn-sym',
+                'hanzi': 'btn-hanzi',
+                'zones': 'btn-zones',
+                'staircase': 'btn-stair'
+            };
+
+            const className = `show-${mode}`;
+            container.classList.toggle(className);
+
+            const btn = document.getElementById(btnMap[mode]);
+            if (container.classList.contains(className)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+
+        function resetTable() {
+            // 清除所有全局状态类
+            const classes = ['show-number', 'show-symbol', 'show-hanzi', 'show-zones', 'show-staircase'];
+            classes.forEach(c => container.classList.remove(c));
+
+            // 重置按钮状态
+            document.querySelectorAll('.controls button').forEach(btn => btn.classList.remove('active'));
+
+            // 重置格子个别状态
+            const allElements = document.querySelectorAll('.element');
+            allElements.forEach(el => {
+                el.classList.remove('is-revealed');
+                el.classList.remove('is-marked');
+            });
+        }
+
+        initTable();
+    </script>
+
+</body>
+
+</html>
